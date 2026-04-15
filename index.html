@@ -142,6 +142,76 @@
     #editor th { background: #F5F7FA; font-weight: 600; position: relative; }
     #editor img { max-width: 100%; border-radius: 6px; margin: 8px 0; display: inline-block; }
 
+    /* ── WORKSPACE SWITCHER ── */
+    .ws-bar {
+      position: relative; padding: 10px 10px 8px;
+      border-bottom: 1px solid #E5E9EF; flex-shrink: 0;
+    }
+    .ws-btn {
+      width: 100%; display: flex; align-items: center; gap: 9px;
+      background: none; border: none; cursor: pointer; padding: 6px 8px;
+      border-radius: 8px; font-family: inherit; transition: background 0.12s;
+    }
+    .ws-btn:hover { background: #F5F7FA; }
+    .ws-avatar {
+      width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+    }
+    .ws-name {
+      flex: 1; font-size: 14px; font-weight: 600; color: #181B1F;
+      text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ws-dropdown {
+      position: absolute; top: calc(100% - 2px); left: 10px; right: 10px;
+      background: #fff; border: 1px solid #E5E9EF; border-radius: 10px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.13); z-index: 50;
+      display: none; overflow: hidden;
+    }
+    .ws-dropdown.open { display: block; }
+    .ws-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 12px; cursor: pointer; transition: background 0.1s; font-size: 13px; color: #3D4552;
+    }
+    .ws-item:hover { background: #F5F7FA; }
+    .ws-item.active { background: rgba(24,138,244,0.07); }
+    .ws-item-name { flex: 1; font-weight: 500; }
+    .ws-item.active .ws-item-name { color: #0a2a5e; font-weight: 600; }
+    .ws-item-check { font-size: 16px !important; color: #188af4; visibility: hidden; }
+    .ws-item.active .ws-item-check { visibility: visible; }
+    .ws-divider { height: 1px; background: #F0F2F5; margin: 2px 0; }
+    .ws-add-row {
+      display: flex; align-items: center; gap: 9px; padding: 9px 12px;
+      cursor: pointer; color: #188af4; font-size: 13px; font-weight: 500; transition: background 0.1s;
+    }
+    .ws-add-row:hover { background: #F5F7FA; }
+    .ws-add-row .material-icons { font-size: 16px !important; }
+    .ws-create-form { padding: 10px 12px 12px; border-top: 1px solid #F0F2F5; display: none; }
+    .ws-create-form.open { display: block; }
+    .ws-create-input {
+      width: 100%; border: 1px solid #C8CDD4; border-radius: 6px;
+      padding: 7px 10px; font-size: 13px; font-family: inherit; outline: none; margin-bottom: 8px;
+    }
+    .ws-create-input:focus { border-color: #188af4; box-shadow: 0 0 0 2px rgba(24,138,244,0.15); }
+    .ws-colors { display: flex; gap: 7px; margin-bottom: 10px; }
+    .ws-color-dot {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; transition: transform 0.1s, border-color 0.1s;
+    }
+    .ws-color-dot:hover { transform: scale(1.15); }
+    .ws-color-dot.selected { border-color: #181B1F; transform: scale(1.1); }
+    .ws-create-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .ws-cancel-btn {
+      background: none; border: 1px solid #E5E9EF; border-radius: 6px;
+      padding: 4px 12px; font-size: 12px; font-family: inherit; cursor: pointer; color: #5A6472;
+    }
+    .ws-cancel-btn:hover { background: #F5F7FA; }
+    .ws-submit-btn {
+      background: #188af4; color: #fff; border: none; border-radius: 6px;
+      padding: 4px 12px; font-size: 12px; font-family: inherit; cursor: pointer; font-weight: 600;
+    }
+    .ws-submit-btn:hover { background: #1278d8; }
+
     /* ── TABLE COLUMN RESIZER ── */
     .col-resizer {
       position: absolute; right: -3px; top: 0; height: 100%;
@@ -181,6 +251,33 @@
 <div class="pages-wrap">
   <!-- Sidebar -->
   <div class="sidebar">
+
+    <!-- Workspace switcher -->
+    <div class="ws-bar" id="ws-bar">
+      <button class="ws-btn" onclick="toggleWorkspaceDropdown()">
+        <div class="ws-avatar" id="ws-avatar">PL</div>
+        <span class="ws-name" id="ws-name">Planning</span>
+        <span class="material-icons" style="font-size:18px;color:#9AA4AD;flex-shrink:0">unfold_more</span>
+      </button>
+      <div class="ws-dropdown" id="ws-dropdown">
+        <div id="ws-list"></div>
+        <div class="ws-divider"></div>
+        <div class="ws-add-row" onclick="openCreateForm()">
+          <span class="material-icons">add</span>
+          New Workspace
+        </div>
+        <div class="ws-create-form" id="ws-create-form">
+          <input type="text" class="ws-create-input" id="ws-create-name" placeholder="Workspace name" maxlength="40"
+            onkeydown="if(event.key==='Enter')submitCreateWorkspace();if(event.key==='Escape')closeCreateForm();" />
+          <div class="ws-colors" id="ws-colors"></div>
+          <div class="ws-create-actions">
+            <button class="ws-cancel-btn" onclick="closeCreateForm()">Cancel</button>
+            <button class="ws-submit-btn" onclick="submitCreateWorkspace()">Create</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="sidebar-header">
       <button class="new-page-btn" onclick="addPage(null)">
         <span class="material-icons" style="font-size:16px">add</span>
@@ -279,16 +376,34 @@
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
-let pages = [
-  { id: 'welcome',         title: 'Welcome to Pages',      parentId: null,      content: '<p>Start creating your documentation here.</p><p>Use the toolbar to format your text with <strong>bold</strong>, <em>italic</em>, lists, and more!</p>' },
-  { id: 'getting-started', title: 'Getting Started',       parentId: 'welcome', content: '<p>This page will guide you through the basics of using Pages.</p>' },
-  { id: 'policies',        title: 'Policies & Procedures', parentId: null,      content: '<p>Document your organization\'s policies here.</p>' },
-  { id: 'action-plans',    title: 'Action Plans',          parentId: null,      content: '<p>Track and document your annual action plans.</p>' },
-  { id: 'caper-reports',   title: 'CAPER Reports',         parentId: null,      content: '<p>Consolidated Annual Performance and Evaluation Reports.</p>' },
+// ── Workspace state ────────────────────────────────────────────────────────
+const WS_COLORS = ['#00419D','#188af4','#16A34A','#D97706','#DC2626','#7C3AED','#0891B2','#0a2a5e'];
+let selectedColor = WS_COLORS[0];
+
+let workspaces = [
+  { id: 'ws-planning', name: 'Planning',  color: '#00419D' },
+  { id: 'ws-policies', name: 'Policies',  color: '#16A34A' },
 ];
-let activeId = 'welcome';
-let expanded = new Set(['welcome']);
+let activeWorkspaceId = 'ws-planning';
+
+// Pages keyed by workspace id
+let pageStore = {
+  'ws-planning': [
+    { id: 'welcome',         title: 'Welcome to Pages',      parentId: null,      content: '<p>Start creating your documentation here.</p><p>Use the toolbar to format your text with <strong>bold</strong>, <em>italic</em>, lists, and more!</p>' },
+    { id: 'getting-started', title: 'Getting Started',       parentId: 'welcome', content: '<p>This page will guide you through the basics of using Pages.</p>' },
+    { id: 'action-plans',    title: 'Action Plans',          parentId: null,      content: '<p>Track and document your annual action plans.</p>' },
+    { id: 'caper-reports',   title: 'CAPER Reports',         parentId: null,      content: '<p>Consolidated Annual Performance and Evaluation Reports.</p>' },
+  ],
+  'ws-policies': [
+    { id: 'pol-home', title: 'Policies & Procedures', parentId: null, content: '<p>Document your organization\'s policies here.</p>' },
+  ],
+};
+
+// `pages` always points to the active workspace's array
+let pages = pageStore[activeWorkspaceId];
+
+let activeId = pages[0]?.id ?? null;
+let expanded = new Set([activeId]);
 let saveTimer = null;
 
 // ── Tree rendering ─────────────────────────────────────────────────────────
@@ -390,6 +505,7 @@ function deletePage(id) {
   pages = pages.filter(p => p.id !== id).map(p =>
     p.parentId === id ? { ...p, parentId: target?.parentId ?? null } : p
   );
+  pageStore[activeWorkspaceId] = pages; // keep store in sync after filter
   if (activeId === id) selectPage(pages[0]?.id || null);
   else renderTree();
 }
@@ -498,6 +614,120 @@ function autoResize(el) {
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// WORKSPACE MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════════
+function wsInitials(name) {
+  return name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function renderWorkspaceHeader() {
+  const ws = workspaces.find(w => w.id === activeWorkspaceId);
+  if (!ws) return;
+  document.getElementById('ws-avatar').textContent = wsInitials(ws.name);
+  document.getElementById('ws-avatar').style.background = ws.color;
+  document.getElementById('ws-name').textContent = ws.name;
+}
+
+function renderWorkspaceList() {
+  const list = document.getElementById('ws-list');
+  list.innerHTML = '';
+  workspaces.forEach(ws => {
+    const item = document.createElement('div');
+    item.className = 'ws-item' + (ws.id === activeWorkspaceId ? ' active' : '');
+    item.innerHTML = `
+      <div class="ws-avatar" style="background:${ws.color};width:24px;height:24px;border-radius:5px;font-size:10px">${wsInitials(ws.name)}</div>
+      <span class="ws-item-name">${ws.name}</span>
+      <span class="material-icons ws-item-check">check</span>
+    `;
+    item.onclick = () => switchWorkspace(ws.id);
+    list.appendChild(item);
+  });
+}
+
+function toggleWorkspaceDropdown() {
+  const dd = document.getElementById('ws-dropdown');
+  const isOpen = dd.classList.contains('open');
+  if (isOpen) {
+    closeWorkspaceDropdown();
+  } else {
+    renderWorkspaceList();
+    dd.classList.add('open');
+  }
+}
+
+function closeWorkspaceDropdown() {
+  document.getElementById('ws-dropdown').classList.remove('open');
+  closeCreateForm();
+}
+
+function switchWorkspace(id) {
+  // Save current editor content
+  const cur = pages.find(p => p.id === activeId);
+  if (cur) cur.content = document.getElementById('editor').innerHTML;
+
+  activeWorkspaceId = id;
+  pages = pageStore[id] ?? [];
+  activeId = pages[0]?.id ?? null;
+  expanded = new Set(activeId ? [activeId] : []);
+
+  hideImageOverlay();
+  renderWorkspaceHeader();
+  renderTree();
+  closeWorkspaceDropdown();
+
+  if (activeId) selectPage(activeId);
+  else {
+    document.getElementById('editor').innerHTML = '';
+    document.getElementById('page-h1').value = '';
+    document.getElementById('header-title').value = '';
+  }
+}
+
+function openCreateForm() {
+  const form = document.getElementById('ws-create-form');
+  form.classList.add('open');
+  // Render color swatches
+  const colors = document.getElementById('ws-colors');
+  colors.innerHTML = '';
+  WS_COLORS.forEach(c => {
+    const dot = document.createElement('div');
+    dot.className = 'ws-color-dot' + (c === selectedColor ? ' selected' : '');
+    dot.style.background = c;
+    dot.onclick = () => {
+      selectedColor = c;
+      colors.querySelectorAll('.ws-color-dot').forEach(d => d.classList.remove('selected'));
+      dot.classList.add('selected');
+    };
+    colors.appendChild(dot);
+  });
+  setTimeout(() => document.getElementById('ws-create-name').focus(), 50);
+}
+
+function closeCreateForm() {
+  document.getElementById('ws-create-form').classList.remove('open');
+  document.getElementById('ws-create-name').value = '';
+  selectedColor = WS_COLORS[0];
+}
+
+function submitCreateWorkspace() {
+  const name = document.getElementById('ws-create-name').value.trim();
+  if (!name) { document.getElementById('ws-create-name').focus(); return; }
+
+  const id = 'ws-' + Date.now();
+  workspaces.push({ id, name, color: selectedColor });
+  pageStore[id] = [];
+
+  closeWorkspaceDropdown();
+  switchWorkspace(id);
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('mousedown', e => {
+  const bar = document.getElementById('ws-bar');
+  if (!bar.contains(e.target)) closeWorkspaceDropdown();
+});
 
 // ══════════════════════════════════════════════════════════════════════════
 // TABLE COLUMN RESIZING
@@ -690,7 +920,9 @@ document.addEventListener('mousedown', e => {
 })();
 
 // ── Init ───────────────────────────────────────────────────────────────────
+renderWorkspaceHeader();
 renderTree();
+if (activeId) selectPage(activeId);
 autoResize(document.getElementById('page-h1'));
 attachTableResizers();
 </script>
