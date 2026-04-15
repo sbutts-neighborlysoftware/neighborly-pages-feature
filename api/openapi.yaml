@@ -1,0 +1,306 @@
+openapi: 3.1.0
+info:
+  title: Neighborly Software — Pages API
+  version: 1.0.0
+  description: |
+    Wiki-style documentation pages scoped to the Planning module.
+    All endpoints require authentication. Pages are tenant-isolated
+    by the authenticated user's OrganizationId (resolved server-side
+    from the JWT — never passed as a query param).
+
+servers:
+  - url: /api/planning
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    PageSummary:
+      description: Lightweight shape used in the sidebar tree (no content blob).
+      type: object
+      required: [id, title, parentId, sortOrder, updatedAt]
+      properties:
+        id:          { type: string, format: uuid }
+        title:       { type: string, maxLength: 512 }
+        parentId:    { type: string, format: uuid, nullable: true }
+        sortOrder:   { type: integer }
+        updatedAt:   { type: string, format: date-time }
+        updatedBy:
+          type: object
+          properties:
+            id:     { type: integer }
+            name:   { type: string }
+            avatar: { type: string, nullable: true }
+
+    Page:
+      description: Full page including HTML content.
+      allOf:
+        - $ref: '#/components/schemas/PageSummary'
+        - type: object
+          required: [content, createdAt, createdBy]
+          properties:
+            content:   { type: string, description: Sanitized HTML from the editor }
+            createdAt: { type: string, format: date-time }
+            createdBy:
+              type: object
+              properties:
+                id:     { type: integer }
+                name:   { type: string }
+                avatar: { type: string, nullable: true }
+
+    CreatePageRequest:
+      type: object
+      properties:
+        title:    { type: string, maxLength: 512, default: Untitled }
+        parentId: { type: string, format: uuid, nullable: true }
+        content:  { type: string, default: '' }
+
+    UpdatePageRequest:
+      type: object
+      description: All fields optional — send only what changed (PATCH semantics).
+      properties:
+        title:   { type: string, maxLength: 512 }
+        content: { type: string }
+
+    MovePageRequest:
+      type: object
+      required: [sortOrder]
+      properties:
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: New parent. null = promote to root.
+        sortOrder:
+          type: integer
+          description: Position among siblings (0-indexed).
+
+    SharePageRequest:
+      type: object
+      required: [permission]
+      properties:
+        userId:
+          type: integer
+          nullable: true
+          description: Omit for a public link share.
+        permission:
+          type: string
+          enum: [View, Edit]
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ShareResponse:
+      type: object
+      properties:
+        id:         { type: string, format: uuid }
+        token:      { type: string, nullable: true, description: Present only for link shares }
+        shareUrl:   { type: string, nullable: true }
+        permission: { type: string, enum: [View, Edit] }
+        expiresAt:  { type: string, format: date-time, nullable: true }
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:    { type: string }
+        message: { type: string }
+
+paths:
+
+  # ── List all pages (sidebar tree) ─────────────────────────────────────────
+  /pages:
+    get:
+      operationId: listPages
+      summary: List all pages for the authenticated user's organization
+      description: |
+        Returns PageSummary objects only (no content blobs) so the sidebar
+        can render the full tree without downloading all page content.
+        Results are ordered by parentId, sortOrder.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PageSummary' }
+        '401': { description: Unauthorized }
+
+    # ── Create page ──────────────────────────────────────────────────────────
+    post:
+      operationId: createPage
+      summary: Create a new page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePageRequest' }
+            example:
+              title: "My New Page"
+              parentId: null
+              content: ""
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Page' }
+        '400': { description: Validation error }
+        '401': { description: Unauthorized }
+
+  # ── Single page ───────────────────────────────────────────────────────────
+  /pages/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+
+    get:
+      operationId: getPage
+      summary: Get a single page with full content
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Page' }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden — page belongs to a different organization }
+        '404': { description: Not found }
+
+    patch:
+      operationId: updatePage
+      summary: Update title and/or content (auto-save endpoint)
+      description: |
+        Called by the debounced auto-save in the editor. Accepts partial
+        updates — send only the fields that changed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePageRequest' }
+            example:
+              title: "Updated Title"
+              content: "<p>Updated content</p>"
+      responses:
+        '200':
+          description: OK — returns the updated PageSummary (not full content, to save bandwidth)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PageSummary' }
+        '400': { description: Validation error }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not found }
+
+    delete:
+      operationId: deletePage
+      summary: Soft-delete a page
+      description: |
+        Sets DeletedAt. Children are re-parented to the deleted page's
+        parent (server handles this in a transaction).
+      responses:
+        '204': { description: No content }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not found }
+
+  # ── Move / reorder ────────────────────────────────────────────────────────
+  /pages/{id}/move:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: movePage
+      summary: Move a page to a new parent or reorder among siblings
+      description: |
+        The server recalculates SortOrder for all affected siblings in a
+        single transaction to avoid gaps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MovePageRequest' }
+            example:
+              parentId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+              sortOrder: 1
+      responses:
+        '200':
+          description: OK — returns updated list of all affected PageSummary objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PageSummary' }
+        '400': { description: Validation error (e.g. circular parent) }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not found }
+
+  # ── Share ─────────────────────────────────────────────────────────────────
+  /pages/{id}/shares:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+
+    get:
+      operationId: listPageShares
+      summary: List active shares for a page
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ShareResponse' }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+
+    post:
+      operationId: sharePage
+      summary: Create a share (user-specific or link-based)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SharePageRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShareResponse' }
+        '400': { description: Validation error }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+
+  /pages/shares/{shareId}:
+    delete:
+      operationId: revokeShare
+      summary: Revoke a share
+      parameters:
+        - name: shareId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: No content }
+        '401': { description: Unauthorized }
+        '403': { description: Forbidden }
+        '404': { description: Not found }

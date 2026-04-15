@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pages Feature — Neighborly Software</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Nunito Sans', sans-serif; background: #F5F7FA; color: #181B1F; font-size: 18px; }
+
+    /* ── PAGES LAYOUT ── */
+    .pages-wrap {
+      display: flex; height: 100vh; overflow: hidden;
+      background: #fff;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 260px; min-width: 160px; max-width: 520px; border-right: none;
+      display: flex; flex-direction: column; overflow: hidden; background: #fff;
+      flex-shrink: 0;
+    }
+
+    /* ── SIDEBAR RESIZER ── */
+    .sidebar-resizer {
+      width: 5px; flex-shrink: 0; cursor: col-resize;
+      background: #E5E9EF; transition: background 0.15s;
+      position: relative; z-index: 5;
+    }
+    .sidebar-resizer:hover, .sidebar-resizer.dragging { background: #188af4; }
+    .sidebar-header { padding: 12px; }
+    .new-page-btn {
+      width: 100%; background: #188af4; color: #fff; border: none;
+      border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+      font-family: inherit; cursor: pointer; display: flex; align-items: center;
+      gap: 6px; justify-content: center;
+      box-shadow: 0 2px 4px rgba(24,138,244,0.25); transition: background 0.15s;
+    }
+    .new-page-btn:hover { background: #1278d8; }
+    .page-tree { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+    .tree-item {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 8px 4px 0; margin: 1px 6px;
+      border-radius: 6px; cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background 0.1s; user-select: none;
+    }
+    .tree-item:hover { background: rgba(0,0,0,0.04); }
+    .tree-item.active { background: rgba(24,138,244,0.10); border-left-color: #188af4; }
+    .tree-item.active .tree-title { font-weight: 600; color: #0a2a5e; }
+    .tree-expand { width: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #9AA4AD; }
+    .tree-icon { color: #9AA4AD; font-size: 16px !important; flex-shrink: 0; }
+    .tree-item.active .tree-icon { color: #188af4; }
+    .tree-title { flex: 1; font-size: 14px; color: #3D4552; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 24px; }
+    .tree-actions { opacity: 0; display: flex; gap: 1px; }
+    .tree-item:hover .tree-actions { opacity: 1; }
+    .tree-action-btn {
+      background: none; border: none; color: #9AA4AD; cursor: pointer;
+      padding: 2px; border-radius: 3px; display: flex; align-items: center;
+    }
+    .tree-action-btn:hover { color: #188af4; background: rgba(24,138,244,0.08); }
+    .tree-children { padding-left: 14px; }
+
+    /* ── EDITOR AREA ── */
+    .editor-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .editor-topbar {
+      display: flex; align-items: center; padding: 0 16px;
+      min-height: 48px; border-bottom: 1px solid #E5E9EF; gap: 12px; flex-shrink: 0;
+    }
+    .page-title-input {
+      flex: 1; border: none; outline: none; font-size: 16px; font-weight: 600;
+      font-family: inherit; color: #181B1F; background: transparent; max-width: 320px;
+    }
+    .save-indicator { display: flex; align-items: center; gap: 5px; font-size: 14px; }
+    .save-indicator.saved { color: #188af4; }
+    .save-indicator.saving { color: #9AA4AD; }
+    .save-indicator .material-icons { font-size: 16px !important; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .spinning { animation: spin 1s linear infinite; }
+    .avatars { display: flex; }
+    .avatar {
+      width: 26px; height: 26px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+      color: #fff; border: 2px solid #fff; margin-left: -4px;
+    }
+    .share-btn {
+      background: none; border: none; cursor: pointer; color: #5A6472;
+      font-size: 14px; font-family: inherit; font-weight: 500;
+      display: flex; align-items: center; gap: 4px; padding: 5px 10px;
+      border-radius: 6px; transition: all 0.1s;
+    }
+    .share-btn:hover { background: rgba(24,138,244,0.06); color: #188af4; }
+    .share-btn .material-icons { font-size: 16px !important; }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 1px;
+      padding: 5px 12px; border-bottom: 1px solid #E5E9EF;
+      position: sticky; top: 0; background: #fff; z-index: 10; flex-shrink: 0;
+    }
+    .tb-select {
+      height: 28px; font-size: 14px; font-family: inherit; border: 1px solid #E5E9EF;
+      border-radius: 4px; padding: 0 4px; margin-right: 4px; color: #5A6472;
+      background: #fff; cursor: pointer; outline: none;
+    }
+    .tb-sep { width: 1px; height: 18px; background: #E5E9EF; margin: 0 4px; }
+    .tb-btn {
+      background: none; border: none; cursor: pointer; color: #5A6472;
+      padding: 4px; border-radius: 4px; display: flex; align-items: center; transition: all 0.1s;
+    }
+    .tb-btn:hover { background: rgba(24,138,244,0.08); color: #188af4; }
+    .tb-btn .material-icons { font-size: 20px !important; }
+
+    /* ── CONTENT ── */
+    .content-scroll { flex: 1; overflow-y: auto; }
+    .content-inner { max-width: 720px; margin: 0 auto; padding: 32px 48px 64px; }
+    .page-h1-input {
+      width: 100%; border: none; outline: none; resize: none; overflow: hidden;
+      font-size: 36px; font-weight: 700; color: #181B1F; font-family: inherit;
+      line-height: 1.3; margin-bottom: 12px; background: transparent;
+    }
+    #editor {
+      min-height: 400px; outline: none;
+      font-size: 17px; line-height: 1.8; color: #181B1F; position: relative;
+    }
+    #editor:empty::before { content: 'Start writing…'; color: #C8CDD4; }
+    #editor h1 { font-size: 30px; font-weight: 700; color: #0a2a5e; margin: 28px 0 10px; }
+    #editor h2 { font-size: 25px; font-weight: 700; color: #0a2a5e; margin: 24px 0 8px; }
+    #editor h3 { font-size: 21px; font-weight: 600; color: #0a2a5e; margin: 20px 0 6px; }
+    #editor p { margin: 6px 0; }
+    #editor ul, #editor ol { padding-left: 24px; margin: 8px 0; }
+    #editor li { margin-bottom: 2px; }
+    #editor blockquote { border-left: 3px solid #188af4; padding-left: 16px; margin: 12px 0; color: #5A6472; font-style: italic; }
+    #editor pre { background: #F0F2F5; border-radius: 6px; padding: 14px 16px; font-family: monospace; font-size: 15px; overflow-x: auto; margin: 12px 0; }
+    #editor code { background: #F0F2F5; padding: 1px 5px; border-radius: 4px; font-family: monospace; font-size: 15px; }
+    #editor a { color: #188af4; }
+    #editor table { border-collapse: collapse; width: 100%; margin: 12px 0; table-layout: fixed; }
+    #editor td, #editor th { border: 1px solid #E5E9EF; padding: 10px 14px; font-size: 16px; overflow: hidden; }
+    #editor th { background: #F5F7FA; font-weight: 600; position: relative; }
+    #editor img { max-width: 100%; border-radius: 6px; margin: 8px 0; display: inline-block; }
+
+    /* ── TABLE COLUMN RESIZER ── */
+    .col-resizer {
+      position: absolute; right: -3px; top: 0; height: 100%;
+      width: 6px; cursor: col-resize; z-index: 2;
+      background: transparent;
+    }
+    .col-resizer:hover, .col-resizer.dragging { background: #188af4; opacity: 0.5; }
+    #editor th:last-child .col-resizer { display: none; }
+
+    /* ── IMAGE RESIZE OVERLAY ── */
+    #img-overlay {
+      position: fixed; pointer-events: none; z-index: 100;
+      outline: 2px solid #188af4; border-radius: 3px; display: none;
+    }
+    #img-overlay.visible { display: block; }
+    .img-handle {
+      position: absolute; width: 10px; height: 10px;
+      background: #fff; border: 2px solid #188af4; border-radius: 2px;
+      pointer-events: all;
+    }
+    .img-handle.nw { top: -5px; left: -5px;  cursor: nw-resize; }
+    .img-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+    .img-handle.sw { bottom: -5px; left: -5px;  cursor: sw-resize; }
+    .img-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+    .img-handle.n  { top: -5px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+    .img-handle.s  { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+    .img-handle.w  { left: -5px; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+    .img-handle.e  { right: -5px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+    .img-size-badge {
+      position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%);
+      background: #0a2a5e; color: #fff; font-size: 11px; font-family: 'Nunito Sans', sans-serif;
+      padding: 2px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+<div class="pages-wrap">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <button class="new-page-btn" onclick="addPage(null)">
+        <span class="material-icons" style="font-size:16px">add</span>
+        New Page
+      </button>
+    </div>
+    <div class="page-tree" id="page-tree"></div>
+  </div>
+
+  <!-- Sidebar resize handle -->
+  <div class="sidebar-resizer" id="sidebar-resizer"></div>
+
+  <!-- Editor -->
+  <div class="editor-area">
+    <div class="editor-topbar">
+      <input id="header-title" class="page-title-input" value="Welcome to Pages" oninput="onHeaderTitleChange(this.value)" />
+      <div style="flex:1"></div>
+      <div class="save-indicator saved" id="save-indicator">
+        <span class="material-icons">check_circle_outline</span>
+        <span id="save-text">Saved</span>
+      </div>
+      <div class="avatars">
+        <div class="avatar" style="background:#188af4">U1</div>
+        <div class="avatar" style="background:#00419D">U2</div>
+      </div>
+      <button class="share-btn">
+        <span class="material-icons">ios_share</span>
+        Share
+      </button>
+    </div>
+
+    <!-- Formatting toolbar -->
+    <div class="toolbar">
+      <select class="tb-select" onchange="execFmt('formatBlock',this.value)">
+        <option value="p">Normal</option>
+        <option value="h1">Heading 1</option>
+        <option value="h2">Heading 2</option>
+        <option value="h3">Heading 3</option>
+        <option value="h4">Heading 4</option>
+      </select>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="execFmt('bold')" title="Bold"><span class="material-icons">format_bold</span></button>
+      <button class="tb-btn" onclick="execFmt('italic')" title="Italic"><span class="material-icons">format_italic</span></button>
+      <button class="tb-btn" onclick="execFmt('underline')" title="Underline"><span class="material-icons">format_underlined</span></button>
+      <button class="tb-btn" onclick="execFmt('strikeThrough')" title="Strikethrough"><span class="material-icons">strikethrough_s</span></button>
+      <button class="tb-btn" onclick="execFmt('subscript')" title="Subscript"><span class="material-icons">subscript</span></button>
+      <button class="tb-btn" onclick="execFmt('superscript')" title="Superscript"><span class="material-icons">superscript</span></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="execFmt('foreColor','#188af4')" title="Text color"><span class="material-icons">format_color_text</span></button>
+      <button class="tb-btn" onclick="execFmt('hiliteColor','#FFF3CD')" title="Highlight"><span class="material-icons">format_color_fill</span></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="execFmt('insertUnorderedList')" title="Bullet list"><span class="material-icons">format_list_bulleted</span></button>
+      <button class="tb-btn" onclick="execFmt('insertOrderedList')" title="Numbered list"><span class="material-icons">format_list_numbered</span></button>
+      <button class="tb-btn" onclick="execFmt('indent')" title="Indent"><span class="material-icons">format_indent_increase</span></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="execFmt('justifyLeft')" title="Align left"><span class="material-icons">format_align_left</span></button>
+      <button class="tb-btn" onclick="execFmt('justifyCenter')" title="Align center"><span class="material-icons">format_align_center</span></button>
+      <button class="tb-btn" onclick="execFmt('justifyRight')" title="Align right"><span class="material-icons">format_align_right</span></button>
+      <button class="tb-btn" onclick="execFmt('justifyFull')" title="Justify"><span class="material-icons">format_align_justify</span></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="execFmt('formatBlock','blockquote')" title="Blockquote"><span class="material-icons">format_quote</span></button>
+      <button class="tb-btn" onclick="execFmt('formatBlock','pre')" title="Code block"><span class="material-icons">code</span></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="insertLink()" title="Insert link"><span class="material-icons">insert_link</span></button>
+      <button class="tb-btn" onclick="insertImage()" title="Insert image"><span class="material-icons">image</span></button>
+      <button class="tb-btn" onclick="insertTable()" title="Insert table"><span class="material-icons">table_chart</span></button>
+      <button class="tb-btn" onclick="insertFormula()" title="Formula"><span class="material-icons">functions</span></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="execFmt('removeFormat')" title="Clear formatting"><span class="material-icons">format_clear</span></button>
+    </div>
+
+    <!-- Content -->
+    <div class="content-scroll" id="content-scroll">
+      <div class="content-inner">
+        <textarea id="page-h1" class="page-h1-input" rows="1" oninput="onPageTitleChange(this.value);autoResize(this)">Welcome to Pages</textarea>
+        <div id="editor" contenteditable="true" oninput="onEditorChange()">
+          <p>Start creating your documentation here.</p>
+          <p>Use the toolbar to format your text with <strong>bold</strong>, <em>italic</em>, lists, and more!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image resize overlay (lives outside editor to avoid contenteditable issues) -->
+<div id="img-overlay">
+  <div class="img-handle nw" data-dir="nw"></div>
+  <div class="img-handle n"  data-dir="n"></div>
+  <div class="img-handle ne" data-dir="ne"></div>
+  <div class="img-handle e"  data-dir="e"></div>
+  <div class="img-handle se" data-dir="se"></div>
+  <div class="img-handle s"  data-dir="s"></div>
+  <div class="img-handle sw" data-dir="sw"></div>
+  <div class="img-handle w"  data-dir="w"></div>
+  <div class="img-size-badge" id="img-size-badge">100 × 100</div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let pages = [
+  { id: 'welcome',         title: 'Welcome to Pages',      parentId: null,      content: '<p>Start creating your documentation here.</p><p>Use the toolbar to format your text with <strong>bold</strong>, <em>italic</em>, lists, and more!</p>' },
+  { id: 'getting-started', title: 'Getting Started',       parentId: 'welcome', content: '<p>This page will guide you through the basics of using Pages.</p>' },
+  { id: 'policies',        title: 'Policies & Procedures', parentId: null,      content: '<p>Document your organization\'s policies here.</p>' },
+  { id: 'action-plans',    title: 'Action Plans',          parentId: null,      content: '<p>Track and document your annual action plans.</p>' },
+  { id: 'caper-reports',   title: 'CAPER Reports',         parentId: null,      content: '<p>Consolidated Annual Performance and Evaluation Reports.</p>' },
+];
+let activeId = 'welcome';
+let expanded = new Set(['welcome']);
+let saveTimer = null;
+
+// ── Tree rendering ─────────────────────────────────────────────────────────
+function buildTree(pages) {
+  const map = {};
+  const roots = [];
+  pages.forEach(p => { map[p.id] = { ...p, children: [] }; });
+  pages.forEach(p => {
+    if (p.parentId && map[p.parentId]) map[p.parentId].children.push(map[p.id]);
+    else roots.push(map[p.id]);
+  });
+  return roots;
+}
+
+function renderTree() {
+  const tree = buildTree(pages);
+  const container = document.getElementById('page-tree');
+  container.innerHTML = '';
+  tree.forEach(node => container.appendChild(renderNode(node, 0)));
+}
+
+function renderNode(node, depth) {
+  const hasChildren = node.children.length > 0;
+  const isActive = node.id === activeId;
+  const isExpanded = expanded.has(node.id);
+  const wrap = document.createElement('div');
+
+  const row = document.createElement('div');
+  row.className = 'tree-item' + (isActive ? ' active' : '');
+  row.style.paddingLeft = (12 + depth * 14) + 'px';
+  row.onclick = () => selectPage(node.id);
+
+  const expCol = document.createElement('div');
+  expCol.className = 'tree-expand';
+  if (hasChildren) {
+    expCol.innerHTML = `<span class="material-icons" style="font-size:14px;cursor:pointer" onclick="event.stopPropagation();toggleExpand('${node.id}')">${isExpanded ? 'expand_more' : 'chevron_right'}</span>`;
+  }
+
+  const icon = document.createElement('span');
+  icon.className = 'material-icons tree-icon';
+  icon.textContent = hasChildren ? 'folder_open' : 'article';
+
+  const title = document.createElement('span');
+  title.className = 'tree-title';
+  title.textContent = node.title || 'Untitled';
+
+  const actions = document.createElement('div');
+  actions.className = 'tree-actions';
+  actions.innerHTML = `
+    <button class="tree-action-btn" title="Add subpage" onclick="event.stopPropagation();addPage('${node.id}')">
+      <span class="material-icons" style="font-size:14px">add</span>
+    </button>
+    <button class="tree-action-btn" title="Delete" onclick="event.stopPropagation();deletePage('${node.id}')">
+      <span class="material-icons" style="font-size:14px">delete_outline</span>
+    </button>
+  `;
+
+  row.append(expCol, icon, title, actions);
+  wrap.appendChild(row);
+
+  if (hasChildren && isExpanded) {
+    const childContainer = document.createElement('div');
+    childContainer.className = 'tree-children';
+    node.children.forEach(child => childContainer.appendChild(renderNode(child, depth + 1)));
+    wrap.appendChild(childContainer);
+  }
+
+  return wrap;
+}
+
+// ── Page operations ────────────────────────────────────────────────────────
+function selectPage(id) {
+  const current = pages.find(p => p.id === activeId);
+  if (current) current.content = document.getElementById('editor').innerHTML;
+  hideImageOverlay();
+  activeId = id;
+  const page = pages.find(p => p.id === id);
+  if (!page) return;
+  document.getElementById('editor').innerHTML = page.content || '';
+  document.getElementById('page-h1').value = page.title;
+  document.getElementById('header-title').value = page.title;
+  autoResize(document.getElementById('page-h1'));
+  attachTableResizers();
+  renderTree();
+  setSaved();
+}
+
+function addPage(parentId) {
+  const id = 'page-' + Date.now();
+  pages.push({ id, title: 'Untitled', parentId: parentId || null, content: '' });
+  if (parentId) expanded.add(parentId);
+  selectPage(id);
+  setTimeout(() => { document.getElementById('page-h1').select(); }, 50);
+}
+
+function deletePage(id) {
+  if (!confirm('Delete this page?')) return;
+  const target = pages.find(p => p.id === id);
+  pages = pages.filter(p => p.id !== id).map(p =>
+    p.parentId === id ? { ...p, parentId: target?.parentId ?? null } : p
+  );
+  if (activeId === id) selectPage(pages[0]?.id || null);
+  else renderTree();
+}
+
+function toggleExpand(id) {
+  expanded.has(id) ? expanded.delete(id) : expanded.add(id);
+  renderTree();
+}
+
+// ── Content changes ────────────────────────────────────────────────────────
+function onEditorChange() {
+  const page = pages.find(p => p.id === activeId);
+  if (page) page.content = document.getElementById('editor').innerHTML;
+  scheduleSave();
+  // Attach resizers to any newly inserted tables
+  attachTableResizers();
+}
+
+function onPageTitleChange(val) {
+  const page = pages.find(p => p.id === activeId);
+  if (page) page.title = val;
+  document.getElementById('header-title').value = val;
+  scheduleSave();
+  renderTree();
+}
+
+function onHeaderTitleChange(val) {
+  const page = pages.find(p => p.id === activeId);
+  if (page) page.title = val;
+  document.getElementById('page-h1').value = val;
+  scheduleSave();
+  renderTree();
+}
+
+// ── Save indicator ─────────────────────────────────────────────────────────
+function scheduleSave() {
+  const ind = document.getElementById('save-indicator');
+  const txt = document.getElementById('save-text');
+  ind.className = 'save-indicator saving';
+  txt.textContent = 'Saving…';
+  ind.querySelector('.material-icons').textContent = 'autorenew';
+  ind.querySelector('.material-icons').classList.add('spinning');
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(setSaved, 1200);
+}
+
+function setSaved() {
+  const ind = document.getElementById('save-indicator');
+  const txt = document.getElementById('save-text');
+  ind.className = 'save-indicator saved';
+  txt.textContent = 'Saved';
+  const icon = ind.querySelector('.material-icons');
+  icon.textContent = 'check_circle_outline';
+  icon.classList.remove('spinning');
+}
+
+// ── Editor commands ────────────────────────────────────────────────────────
+function execFmt(cmd, val) {
+  document.getElementById('editor').focus();
+  document.execCommand(cmd, false, val || null);
+}
+
+function insertLink() {
+  const url = prompt('Enter URL:');
+  if (url) execFmt('createLink', url);
+}
+
+function insertImage() {
+  const url = prompt('Enter image URL:');
+  if (url) {
+    execFmt('insertImage', url);
+    setTimeout(attachTableResizers, 50);
+  }
+}
+
+function insertTable() {
+  document.getElementById('editor').focus();
+  document.execCommand('insertHTML', false,
+    '<table style="border-collapse:collapse;width:100%;margin:12px 0;table-layout:fixed"><tbody>' +
+    '<tr>' +
+    '<th style="border:1px solid #E5E9EF;padding:8px 12px;background:#F5F7FA;font-weight:600;position:relative">Header 1</th>' +
+    '<th style="border:1px solid #E5E9EF;padding:8px 12px;background:#F5F7FA;font-weight:600;position:relative">Header 2</th>' +
+    '<th style="border:1px solid #E5E9EF;padding:8px 12px;background:#F5F7FA;font-weight:600;position:relative">Header 3</th>' +
+    '</tr>' +
+    '<tr>' +
+    '<td style="border:1px solid #E5E9EF;padding:8px 12px">Cell</td>' +
+    '<td style="border:1px solid #E5E9EF;padding:8px 12px">Cell</td>' +
+    '<td style="border:1px solid #E5E9EF;padding:8px 12px">Cell</td>' +
+    '</tr>' +
+    '</tbody></table><p></p>'
+  );
+  setTimeout(attachTableResizers, 50);
+}
+
+function insertFormula() {
+  const formula = prompt('Enter formula or expression:');
+  if (formula) {
+    document.getElementById('editor').focus();
+    document.execCommand('insertHTML', false,
+      `<code style="background:#F0F2F5;padding:2px 6px;border-radius:4px;font-family:monospace">${formula}</code>`
+    );
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// TABLE COLUMN RESIZING
+// Drag the right border of any <th> to resize that column and its neighbor.
+// ══════════════════════════════════════════════════════════════════════════
+function attachTableResizers() {
+  const editor = document.getElementById('editor');
+  editor.querySelectorAll('table').forEach(table => {
+    if (table.dataset.resizable) return; // already wired
+    table.dataset.resizable = '1';
+
+    const ths = Array.from(table.querySelectorAll('th'));
+    ths.forEach((th, i) => {
+      if (th.querySelector('.col-resizer')) return;
+      th.style.position = 'relative';
+
+      const resizer = document.createElement('div');
+      resizer.className = 'col-resizer';
+      th.appendChild(resizer);
+
+      resizer.addEventListener('mousedown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        resizer.classList.add('dragging');
+
+        const startX    = e.clientX;
+        const startW    = th.offsetWidth;
+        const nextTh    = ths[i + 1];
+        const nextStartW = nextTh ? nextTh.offsetWidth : null;
+
+        // Fix all current column widths so table-layout:fixed locks them
+        ths.forEach(t => { t.style.width = t.offsetWidth + 'px'; });
+
+        function onMove(e) {
+          const dx = e.clientX - startX;
+          const newW = Math.max(48, startW + dx);
+          th.style.width = newW + 'px';
+          if (nextTh && nextStartW !== null) {
+            nextTh.style.width = Math.max(48, nextStartW - dx) + 'px';
+          }
+        }
+
+        function onUp() {
+          resizer.classList.remove('dragging');
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          onEditorChange();
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// IMAGE RESIZING
+// Click an image → overlay with 8 handles appears. Drag any handle to resize.
+// ══════════════════════════════════════════════════════════════════════════
+let activeImg = null;
+
+function positionOverlay() {
+  if (!activeImg) return;
+  const overlay = document.getElementById('img-overlay');
+  const r = activeImg.getBoundingClientRect();
+  overlay.style.left   = r.left   + 'px';
+  overlay.style.top    = r.top    + 'px';
+  overlay.style.width  = r.width  + 'px';
+  overlay.style.height = r.height + 'px';
+  document.getElementById('img-size-badge').textContent =
+    Math.round(r.width) + ' × ' + Math.round(r.height);
+}
+
+function showImageOverlay(img) {
+  activeImg = img;
+  const overlay = document.getElementById('img-overlay');
+  overlay.classList.add('visible');
+  positionOverlay();
+}
+
+function hideImageOverlay() {
+  activeImg = null;
+  document.getElementById('img-overlay').classList.remove('visible');
+}
+
+// Wire handle drag logic once
+(function initImageResize() {
+  const overlay = document.getElementById('img-overlay');
+
+  overlay.querySelectorAll('.img-handle').forEach(handle => {
+    handle.addEventListener('mousedown', e => {
+      if (!activeImg) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const dir      = handle.dataset.dir;
+      const startX   = e.clientX;
+      const startY   = e.clientY;
+      const startW   = activeImg.offsetWidth;
+      const startH   = activeImg.offsetHeight;
+      const aspectR  = startW / startH;
+
+      function onMove(e) {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        let newW = startW, newH = startH;
+
+        if (dir === 'se') { newW = Math.max(32, startW + dx); newH = Math.max(32, startH + dy); }
+        else if (dir === 'sw') { newW = Math.max(32, startW - dx); newH = Math.max(32, startH + dy); }
+        else if (dir === 'ne') { newW = Math.max(32, startW + dx); newH = Math.max(32, startH - dy); }
+        else if (dir === 'nw') { newW = Math.max(32, startW - dx); newH = Math.max(32, startH - dy); }
+        else if (dir === 'e')  { newW = Math.max(32, startW + dx); newH = newW / aspectR; }
+        else if (dir === 'w')  { newW = Math.max(32, startW - dx); newH = newW / aspectR; }
+        else if (dir === 's')  { newH = Math.max(32, startH + dy); newW = newH * aspectR; }
+        else if (dir === 'n')  { newH = Math.max(32, startH - dy); newW = newH * aspectR; }
+
+        activeImg.style.width  = Math.round(newW) + 'px';
+        activeImg.style.height = Math.round(newH) + 'px';
+        positionOverlay();
+      }
+
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        onEditorChange();
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+})();
+
+// Detect image clicks inside editor
+document.getElementById('editor').addEventListener('click', e => {
+  if (e.target.tagName === 'IMG') {
+    showImageOverlay(e.target);
+  } else {
+    hideImageOverlay();
+  }
+});
+
+// Keep overlay in sync when user scrolls
+document.getElementById('content-scroll').addEventListener('scroll', () => {
+  if (activeImg) positionOverlay();
+});
+
+// Dismiss overlay when clicking outside editor
+document.addEventListener('mousedown', e => {
+  const overlay = document.getElementById('img-overlay');
+  if (
+    activeImg &&
+    !e.target.closest('#editor') &&
+    !e.target.closest('#img-overlay')
+  ) {
+    hideImageOverlay();
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// SIDEBAR RESIZING
+// Drag the handle between sidebar and editor to resize the sidebar width.
+// ══════════════════════════════════════════════════════════════════════════
+(function initSidebarResize() {
+  const resizer = document.getElementById('sidebar-resizer');
+  const sidebar = resizer.previousElementSibling;
+
+  resizer.addEventListener('mousedown', e => {
+    e.preventDefault();
+    resizer.classList.add('dragging');
+
+    const startX   = e.clientX;
+    const startW   = sidebar.offsetWidth;
+
+    function onMove(e) {
+      const newW = Math.min(520, Math.max(160, startW + (e.clientX - startX)));
+      sidebar.style.width = newW + 'px';
+    }
+
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
+// ── Init ───────────────────────────────────────────────────────────────────
+renderTree();
+autoResize(document.getElementById('page-h1'));
+attachTableResizers();
+</script>
+</body>
+</html>
